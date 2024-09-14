@@ -17,9 +17,8 @@ class ImgbeddingsPipeline(EmbeddingPipeline[Imgbeddings, Image]):
 
     img_cache_path: str | Path
 
-    def __init__(self, model: Imgbeddings, img_cache_path: str | Path) -> None:
+    def __init__(self, model: Imgbeddings) -> None:
         super().__init__(model)
-        self.img_cache_path = img_cache_path
 
     @override
     def _run_model(
