@@ -525,7 +525,7 @@ class SegGPT(nn.Module):
         return loss, self.patchify(pred), bool_masked_pos
 
 
-def model_builder(**kwargs):
+def seg_gpt_pretrained_model_builder(**kwargs):
     model = SegGPT(
         img_size=(896, 448),
         patch_size=16,

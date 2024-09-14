@@ -11,18 +11,24 @@ from natsort import natsort
 from glob import glob
 import os
 import pickle
+from utils.vision.embeddings.imgbeddings_pipeline import (
+    Imgbeddings,
+    ImgbeddingsPipeline,
+)
+from rich.console import Console
 
 
 class ImageVectorStore(VectorStore[PromptImageDocument]):
     def __init__(self) -> None:
-        pass
+        super().__init__()
 
     @override
     def _get_similarity_scores(
         self, query_vec: np.ndarray
     ) -> np.ndarray | torch.Tensor:
+        query_vec = torch.tensor(query_vec).repeat((self._vectors.shape[0], 1))
         similarity = torch.nn.CosineSimilarity()
-        return similarity(query_vec, self._documents)
+        return similarity(query_vec, torch.tensor(self._vectors))
 
 
 def create_image_vector_store_from_dirs(
@@ -93,6 +99,50 @@ def create_image_vector_store_from_dirs(
 
 
 def load_image_vector_store(path: str | Path) -> ImageVectorStore:
+    """
+    Loads the vector store from the `.pkl` (pickle) file pointed to by `path`.
+
+    Args:
+        path (str | Path): The path to the pickle file to load.
+
+    Returns:
+        ImagVectorStore: The ImageVectorStore loaded from the pickle file.
+    """
     with open(path, "rb") as file:
         image_vector_store: ImageVectorStore = pickle.load(file=file)
     return image_vector_store
+
+
+def main():
+    console = Console()
+
+    images_dir: str = "data/examples/offroad/offterrain-attention-kaggle/images"
+    masks_dir: str = "data/examples/offroad/offterrain-attention-kaggle/masks"
+    cache_path: str = "data/cache/image_vector_store.pkl"
+
+    # Create the embedding pipeline
+    with console.status("Creating embedding pipeline..."):
+        imgbedding = Imgbeddings(gpu=True)
+        embedding_pipeline = ImgbeddingsPipeline(model=imgbedding)
+    console.log(f"Created pipeline {embedding_pipeline}")
+
+    # Create the image vector store
+    with console.status("Creating vector store"):
+        image_vector_store = create_image_vector_store_from_dirs(
+            images_dir=images_dir,
+            masks_dir=masks_dir,
+            embedding_pipeline=embedding_pipeline,
+        )
+    console.log(
+        f"Created vector store with [yellow]{len(image_vector_store.documents)}[/] documents"
+    )
+
+    with console.status(f"Saving image vector store to {cache_path}"):
+        image_vector_store.save(path=cache_path)
+
+    console.log("Stored vector store.")
+    console.log("[light_green]Done[/]")
+
+
+if __name__ == "__main__":
+    main()

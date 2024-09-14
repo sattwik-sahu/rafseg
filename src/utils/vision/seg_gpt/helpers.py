@@ -63,3 +63,49 @@ def plot_query_image_and_output_mask(
     plt.title(title)
 
     return fig, ax
+
+
+def plot_query_pipeline_prompts_and_output(
+    prompt_images: t.List[Image],
+    query_image: Image,
+    output_mask: torch.Tensor,
+    title: str,
+):
+    n_prompts = len(prompt_images)
+
+    # Create a figure with a 2-column layout
+    fig = plt.figure(figsize=(20, 5 * max(n_prompts, 2)))
+    gs = fig.add_gridspec(max(n_prompts, 2), 2, width_ratios=[1, 2])
+
+    # Display prompt images on the left
+    for i, img in enumerate(prompt_images):
+        ax = fig.add_subplot(gs[i, 0])
+        ax.imshow(img)
+        ax.set_title(f"Prompt {i+1}")
+        ax.axis("off")
+
+    # Create a sub-gridspec for the right column
+    right_gs = gs[:, 1].subgridspec(2, 1, height_ratios=[1, 1])
+
+    # Display query image on top right
+    ax_query = fig.add_subplot(right_gs[0])
+    ax_query.imshow(query_image)
+    ax_query.set_title("Query Image", fontsize=14)
+    ax_query.axis("off")
+
+    # Display output (query image with mask overlay) on bottom right
+    ax_output = fig.add_subplot(right_gs[1])
+    ax_output.imshow(query_image)
+    ax_output.imshow(
+        output_mask[0], alpha=0.3, cmap="jet"
+    )  # Using 'jet' colormap for better visibility
+    ax_output.set_title("Output", fontsize=14)
+    ax_output.axis("off")
+
+    # Add title to the entire figure
+    fig.suptitle(title, fontsize=20, y=0.98)  # Increased font size to 20
+
+    # Adjust the layout to add space at the top
+    plt.tight_layout(rect=[0, 0, 1, 0.96])  # This leaves space at the top for the title
+
+    return fig

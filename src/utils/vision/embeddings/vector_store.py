@@ -17,6 +17,9 @@ T_Document = t.TypeVar("T_Document")
 
 
 class VectorStore[T_Document: DocumentVector](ABC):
+    _documents: t.List[T_Document]
+    _vectors: np.ndarray
+
     def __init__(self) -> None:
         self._documents: t.List[T_Document] = []
         self._vectors: np.ndarray = np.empty(0)
@@ -46,7 +49,7 @@ class VectorStore[T_Document: DocumentVector](ABC):
         """
         pass
 
-    def retrieve(self, query_embedding: np.ndarray, k: int) -> t.List[DocumentVector]:
+    def retrieve(self, query_embedding: np.ndarray, k: int) -> t.List[T_Document]:
         """
         Calculates similarity to all vectors in the index and returns the
         `k` most similar vectors' corresponding documents.
@@ -61,11 +64,10 @@ class VectorStore[T_Document: DocumentVector](ABC):
         """
         # This gets the indexes of the top k similar embeddings and
         # gets those indexes from the documents array
-        return self._documents[
-            np.argpartition(self._get_similarity_scores(query_vec=query_embedding), -k)[
-                :-k
-            ]
-        ]
+        best_indexes = np.argsort(
+            self._get_similarity_scores(query_vec=query_embedding)
+        )[-k:]
+        return [self.documents[i] for i in best_indexes]
 
     @property
     def documents(self) -> t.List[T_Document]:
