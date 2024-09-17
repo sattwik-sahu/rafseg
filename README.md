@@ -39,8 +39,20 @@ poetry install
 
 ### Usage
 
-_To be updated_
+To run the pipeline for evaluation on your images and corresponding segmentation masks
 
+1. Activate the virtual environment
+    ```bash
+    poetry shell
+    ```
+2. Run the vlm module
+    ```bash
+    poetry run python -m vlm \
+    path/to/images_dir \
+    path/to/masks/dir \
+    --dev \
+    --vector-store-path path/to/vector_store.pkl
+    ```
 ---
 
 Made with ❤️ in IISER Bhopal.
