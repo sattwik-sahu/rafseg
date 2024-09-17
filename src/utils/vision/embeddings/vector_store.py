@@ -18,18 +18,17 @@ T_Document = t.TypeVar("T_Document")
 
 class VectorStore[T_Document: DocumentVector](ABC):
     _documents: t.List[T_Document]
-    _vectors: np.ndarray
 
     def __init__(self) -> None:
         self._documents: t.List[T_Document] = []
         self._vectors: np.ndarray = np.empty(0)
 
+    @property
+    def vectors(self) -> np.ndarray:
+        return np.vstack([doc.embedding for doc in self._documents])
+
     def add(self, doc: T_Document) -> None:
         self._documents.append(doc)
-        if self._vectors.size == 0:
-            self._vectors = doc.embedding
-        else:
-            self._vectors = np.vstack((self._vectors, doc.embedding))
 
     @abstractmethod
     def _get_similarity_scores(
@@ -48,6 +47,24 @@ class VectorStore[T_Document: DocumentVector](ABC):
                 each of the `n_vecs` vectors stored in the index.
         """
         pass
+
+    def increase_variance_by_sampling(self, threshold: float) -> t.List[T_Document]:
+        """
+        Samples the documents using a maximum threshold similarity. This is done
+        to decrease the index size, preserving the variance at the same time.
+
+        Args:
+            threshold (float): The threshold.
+        
+        Returns:
+            List[T_Documents]: The list of documents after performing the
+                sampling of the index.
+        """
+        for doc in self._documents:
+            scores = self._get_similarity_scores(doc.embedding)
+            max_similarity = scores.maximum()
+            if max_similarity > threshold:
+                self._documents.remove(doc)
 
     def retrieve(self, query_embedding: np.ndarray, k: int) -> t.List[T_Document]:
         """

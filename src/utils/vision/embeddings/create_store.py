@@ -18,8 +18,8 @@ from rich.console import Console
 
 @dataclass
 class PromptImageDocument(DocumentVector):
-    image: Image
-    mask: Image
+    image: Image | None
+    mask: Image | None
     image_path: str | Path
     mask_path: str | Path
 
@@ -28,6 +28,7 @@ def create_image_vector_store_from_dirs(
     images_dir: str | Path,
     masks_dir: str | Path,
     embedding_pipeline: EmbeddingPipeline[t.Any, Image],
+    store_pil_images: bool = True,
 ) -> VectorStore:
     # Get all jpg, png images from the images_dir directory
     image_paths: t.List[Path] = natsort.natsorted(
@@ -35,9 +36,7 @@ def create_image_vector_store_from_dirs(
     )
 
     # Get all masks from the masks_dir directory (masks are stored only as png)
-    mask_paths: t.List[Path] = natsort.natsorted(
-        glob(os.path.join(masks_dir, "*.png"))
-    )
+    mask_paths: t.List[Path] = natsort.natsorted(glob(os.path.join(masks_dir, "*.png")))
 
     # Get all images
     images: t.List[Image] = [open_image(image_path) for image_path in image_paths]
@@ -50,12 +49,17 @@ def create_image_vector_store_from_dirs(
     for i, (image_path, mask_path, image, embedding) in enumerate(
         zip(image_paths, mask_paths, images, image_embeddings)
     ):
+        mask = open_image(mask_path)
+        if not store_pil_images:
+            image = None
+            mask = None
+
         vector_store.add(
             doc=PromptImageDocument(
                 id=i,
                 embedding=embedding,
                 image=image,
-                mask=open_image(mask_path),
+                mask=mask,
                 image_path=image_path,
                 mask_path=mask_path,
             )
@@ -73,19 +77,22 @@ def main():
     console.log("Initializing embedding pipeline")
     embedding_pipeline = ImgbeddingsPipeline(model=Imgbeddings(gpu=True))
 
-    with console.status(f"Creating vector store from paths {images_dir} and {masks_dir}"):
+    with console.status(
+        f"Creating vector store from paths {images_dir} and {masks_dir}"
+    ):
         vector_store = create_image_vector_store_from_dirs(
             images_dir=images_dir,
             masks_dir=masks_dir,
             embedding_pipeline=embedding_pipeline,
         )
     console.log(f"Created vector store with {len(vector_store.documents)} documents")
-    
+
     # Save vector store to file
     with console.status(f"Saving vector store to {vector_store_cache_path}"):
         with open(vector_store_cache_path, "wb") as cache_file:
             pickle.dump(vector_store, file=cache_file)
     console.log("[lightgreen]Done.[/]")
+
 
 if __name__ == "__main__":
     main()

@@ -67,45 +67,75 @@ def plot_query_image_and_output_mask(
 
 def plot_query_pipeline_prompts_and_output(
     prompt_images: t.List[Image],
+    prompt_masks: t.List[torch.Tensor],
     query_image: Image,
     output_mask: torch.Tensor,
     title: str,
+    query_ground_truth: t.Optional[Image] = None,
 ):
     n_prompts = len(prompt_images)
 
-    # Create a figure with a 2-column layout
-    fig = plt.figure(figsize=(20, 5 * max(n_prompts, 2)))
-    gs = fig.add_gridspec(max(n_prompts, 2), 2, width_ratios=[1, 2])
+    # Determine the number of rows for the right column
+    right_rows = 3 if query_ground_truth is not None else 2
 
-    # Display prompt images on the left
-    for i, img in enumerate(prompt_images):
-        ax = fig.add_subplot(gs[i, 0])
-        ax.imshow(img)
-        ax.set_title(f"Prompt {i+1}")
+    # Create a figure with a 3-column layout (prompt images, prompt masks, query/output)
+    fig = plt.figure(figsize=(30, 5 * max(n_prompts, right_rows)))
+    gs = fig.add_gridspec(
+        max(n_prompts, right_rows), 3, width_ratios=[1, 1, 2], hspace=0.4, wspace=0.3
+    )
+
+    # Function to display an image with a title
+    def display_image(ax, img, title, is_mask=False):
+        if is_mask:
+            ax.imshow(img, cmap="jet", alpha=0.7)
+        else:
+            ax.imshow(img)
+        ax.set_title(title, fontsize=16, pad=10)
         ax.axis("off")
 
+    # Display prompt images and masks on the left two columns
+    for i, (img, mask) in enumerate(zip(prompt_images, prompt_masks)):
+        # Prompt image
+        ax_img = fig.add_subplot(gs[i, 0])
+        display_image(ax_img, img, f"Prompt {i+1}")
+
+        # Prompt mask
+        ax_mask = fig.add_subplot(gs[i, 1])
+        display_image(ax_mask, mask, f"Prompt {i+1} Mask", is_mask=True)
+
     # Create a sub-gridspec for the right column
-    right_gs = gs[:, 1].subgridspec(2, 1, height_ratios=[1, 1])
+    right_gs = gs[:, 2].subgridspec(
+        right_rows, 1, height_ratios=[1] * right_rows, hspace=0.3
+    )
 
     # Display query image on top right
     ax_query = fig.add_subplot(right_gs[0])
-    ax_query.imshow(query_image)
-    ax_query.set_title("Query Image", fontsize=14)
-    ax_query.axis("off")
+    display_image(ax_query, query_image, "Query Image")
+
+    # Display query ground truth if provided
+    if query_ground_truth is not None:
+        ax_ground_truth = fig.add_subplot(right_gs[1])
+        display_image(ax_ground_truth, query_ground_truth, "Query Ground Truth")
 
     # Display output (query image with mask overlay) on bottom right
-    ax_output = fig.add_subplot(right_gs[1])
+    ax_output = fig.add_subplot(right_gs[-1])
     ax_output.imshow(query_image)
-    ax_output.imshow(
-        output_mask[0], alpha=0.3, cmap="jet"
-    )  # Using 'jet' colormap for better visibility
-    ax_output.set_title("Output", fontsize=14)
+    ax_output.imshow(output_mask, alpha=0.3, cmap="jet")
+    ax_output.set_title("Output", fontsize=16, pad=10)
     ax_output.axis("off")
 
     # Add title to the entire figure
-    fig.suptitle(title, fontsize=20, y=0.98)  # Increased font size to 20
+    fig.suptitle(title, fontsize=20, y=1.02)
 
-    # Adjust the layout to add space at the top
-    plt.tight_layout(rect=[0, 0, 1, 0.96])  # This leaves space at the top for the title
+    # Adjust the layout
+    plt.tight_layout()
+
+    # Check if the figure is too large and reduce size if necessary
+    fig_size = fig.get_size_inches()
+    if fig_size[1] > 30:  # If height is greater than 30 inches
+        scale_factor = 30 / fig_size[1]
+        new_size = (fig_size[0] * scale_factor, 30)
+        fig.set_size_inches(new_size)
+        plt.tight_layout()  # Re-adjust layout after resizing
 
     return fig

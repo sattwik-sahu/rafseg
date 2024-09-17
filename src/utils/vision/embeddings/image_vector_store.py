@@ -26,15 +26,24 @@ class ImageVectorStore(VectorStore[PromptImageDocument]):
     def _get_similarity_scores(
         self, query_vec: np.ndarray
     ) -> np.ndarray | torch.Tensor:
-        query_vec = torch.tensor(query_vec).repeat((self._vectors.shape[0], 1))
+        vectors: np.ndarray = self.vectors
+        query_vec = torch.tensor(query_vec).repeat((vectors.shape[0], 1))
         similarity = torch.nn.CosineSimilarity()
-        return similarity(query_vec, torch.tensor(self._vectors))
+        return similarity(query_vec, torch.tensor(vectors))
+    
+    def _remove_image_objects(self) -> None:
+        for doc in self._documents:
+            doc.image = None
+            doc.mask = None
 
 
-def create_image_vector_store_from_dirs(
+def ingest_dir_to_image_vector_store(
     images_dir: str | Path,
     masks_dir: str | Path,
     embedding_pipeline: EmbeddingPipeline[t.Any, Image],
+    store_images: bool = True,
+    image_vector_store: ImageVectorStore | None = None,
+    sampling_threshold: float = np.inf,
 ) -> ImageVectorStore:
     """
     Creates an ImageVectorStore by reading possible prompt images from
@@ -49,7 +58,12 @@ def create_image_vector_store_from_dirs(
         embedding_pipeline (EmbeddingPipeline[Any, Image]): The embedding
             pipeline for creating embeddings from the prompt images. It should
             take in `PIL.Image.Image` objects as input.
-
+        image_vector_store (ImageVectorStore | None): The image vector store to
+            ingest the images and masks into. If `None`, returns a new
+            `ImageVectorStore` object containing documents of the images and
+            masks.
+        store_images (bool): Whether to store the PIL image objects with the
+            document. Default = True
     Returns:
         ImageVectorStore: The `ImageVectorStore` object produced by storing the
             image path, mask path, image, mask, and embedding for the image in
@@ -80,22 +94,25 @@ def create_image_vector_store_from_dirs(
     image_embeddings: np.ndarray = embedding_pipeline(x=images)
 
     # Initialize the vector store
-    vector_store = ImageVectorStore()
+    # If `None`, create a new ImageVectorStore
+    image_vector_store = image_vector_store or ImageVectorStore()
     for i, (image_path, mask_path, image, embedding) in enumerate(
         zip(image_paths, mask_paths, images, image_embeddings)
     ):
-        vector_store.add(
+        # Create a document from the image and mask
+        # and add to the store
+        image_vector_store.add(
             doc=PromptImageDocument(
                 id=i,
                 embedding=embedding,
-                image=image,
-                mask=open_image(mask_path),
+                image=image if store_images else None,
+                mask=open_image(mask_path) if store_images else None,
                 image_path=image_path,
                 mask_path=mask_path,
             )
         )
 
-    return vector_store
+    return image_vector_store
 
 
 def load_image_vector_store(path: str | Path) -> ImageVectorStore:
@@ -128,7 +145,7 @@ def main():
 
     # Create the image vector store
     with console.status("Creating vector store"):
-        image_vector_store = create_image_vector_store_from_dirs(
+        image_vector_store = ingest_dir_to_image_vector_store(
             images_dir=images_dir,
             masks_dir=masks_dir,
             embedding_pipeline=embedding_pipeline,

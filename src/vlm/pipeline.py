@@ -37,7 +37,19 @@ class Pipeline:
             path=vector_store_path
         )
 
-    def __call__(self, x: Image, k: int = 3) -> np.ndarray:
+    def run(self, x: Image, k: int = 3) -> t.Tuple[t.List[PromptImageDocument], torch.Tensor]:
+        """
+        Runs the pipeline on the given input `x`.
+
+        Args:
+            x (Image): The image input into the pipeline.
+            k (int): How many of the top matches should be used as
+                prompt images?
+
+        Returns:
+            t.Tuple[t.List[PromptImageDocument], torch.Tensor]:
+                A tuple containing the best matches and the output tensor.
+        """
         # Create embedding from query image
         query_embedding = self.embedding_pipeline(x=x)
 
@@ -45,8 +57,8 @@ class Pipeline:
         best_matches: t.List[PromptImageDocument] = self.vector_store.retrieve(query_embedding=query_embedding, k=k)
 
         # Get the images and masks from the best matches
-        prompt_images: t.List[Image] = [doc.image for doc in best_matches]
-        prompt_masks: t.List[Image] = [doc.mask for doc in best_matches]
+        prompt_images: t.List[Image] = [doc.image or open_image(doc.image_path) for doc in best_matches]
+        prompt_masks: t.List[Image] = [doc.mask or open_image(doc.mask_path) for doc in best_matches]
         
         # Perform few shot segmentation on the query_image
         # using prompt_images and prompt_masks
