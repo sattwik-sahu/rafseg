@@ -66,12 +66,12 @@ def plot_query_image_and_output_mask(
 
 
 def plot_query_pipeline_prompts_and_output(
-    prompt_images: t.List[Image],
-    prompt_masks: t.List[torch.Tensor],
+    prompt_images: t.List[Image | np.ndarray],
+    prompt_masks: t.List[Image | np.ndarray],
     query_image: Image,
     output_mask: torch.Tensor,
     title: str,
-    query_ground_truth: t.Optional[Image] = None,
+    query_ground_truth: t.Optional[Image | torch.Tensor] = None,
 ):
     n_prompts = len(prompt_images)
 
