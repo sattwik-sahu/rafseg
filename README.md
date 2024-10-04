@@ -1,4 +1,4 @@
-# RAFSeg
+# RAGSeg
 
 Retrieval Augmented Few-Shot Segmentation for Offroad
 
