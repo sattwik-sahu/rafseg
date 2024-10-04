@@ -87,7 +87,7 @@ def main(
                     output_mask=output_mask,
                     title="Testing pipeline with Prompts",
                 )
-            plt.show()
+                plt.show()
 
             # Calculate iou and update mean iou
             iou: float = calculate_binary_iou(pred=output_mask, target=test_image_mask)
