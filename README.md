@@ -2,7 +2,7 @@
 
 Retrieval Augmented Few-Shot Segmentation for Offroad
 
-*by [Karthik Nambiar](https://github.com/karthiknambiar29), [Agamdeep Singh](https://github.com/jnash10), [Sattwik Sahu](https://github.com/sattwik-sahu)*
+*by [Sattwik Sahu](https://github.com/sattwik-sahu), [Karthik Nambiar](https://github.com/karthiknambiar29), [Agamdeep Singh](https://github.com/jnash10)*
 
 **PI:** [Prof. Sujit P B](https://github.com/pbsujit)
 
