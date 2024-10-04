@@ -1,10 +1,10 @@
 [tool.poetry]
-name = "vlm"
+name = "ragseg"
 version = "0.1.0"
 description = ""
-authors = ["Your Name <you@example.com>"]
+authors = ["Sattwik Sahu <sattwik21@iiserb.ac.in>"]
 readme = "README.md"
-packages = [{include = "vlm", from = "src"}]
+packages = [{include = "ragseg", from = "src"}]
 
 [tool.poetry.dependencies]
 python = ">=3.12,<3.13"

@@ -1,20 +1,16 @@
 from pathlib import Path
-from typing_extensions import Annotated
 
 import numpy as np
 import torch
 import typer
+from matplotlib import pyplot as plt
 from PIL.Image import open as open_image
 from rich.console import Console
-
-from utils.metrics.iou import calculate_binary_iou
-from vlm.pipeline import Pipeline
-
-from natsort import natsort
-
 from rich.progress import Progress
+from typing_extensions import Annotated
 
-from matplotlib import pyplot as plt
+from ragseg.pipeline import Pipeline
+from utils.metrics.iou import calculate_binary_iou
 from utils.vision.seg_gpt.helpers import plot_query_pipeline_prompts_and_output
 
 app = typer.Typer()
@@ -87,7 +83,7 @@ def main(
                     output_mask=output_mask,
                     title="Testing pipeline with Prompts",
                 )
-                plt.show()
+            plt.show()
 
             # Calculate iou and update mean iou
             iou: float = calculate_binary_iou(pred=output_mask, target=test_image_mask)
