@@ -48,7 +48,7 @@ class VectorStore[T_Document: DocumentVector](ABC):
         """
         pass
 
-    def increase_variance_by_sampling(self, threshold: float) -> t.List[T_Document]:
+    def increase_variance_by_sampling(self, threshold: float) -> None:
         """
         Samples the documents using a maximum threshold similarity. This is done
         to decrease the index size, preserving the variance at the same time.
@@ -62,7 +62,7 @@ class VectorStore[T_Document: DocumentVector](ABC):
         """
         for doc in self._documents:
             scores = self._get_similarity_scores(doc.embedding)
-            max_similarity = scores.maximum()
+            max_similarity = scores.max()
             if max_similarity > threshold:
                 self._documents.remove(doc)
 

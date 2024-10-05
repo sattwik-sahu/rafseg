@@ -11,6 +11,7 @@ from natsort import natsort
 from glob import glob
 import os
 import pickle
+from utils.metrics.cos import cosine_similarity
 from utils.vision.embeddings.imgbeddings_pipeline import (
     Imgbeddings,
     ImgbeddingsPipeline,
@@ -96,21 +97,31 @@ def ingest_dir_to_image_vector_store(
     # Initialize the vector store
     # If `None`, create a new ImageVectorStore
     image_vector_store = image_vector_store or ImageVectorStore()
+    console = Console()
+    initial_vector = np.zeros_like(image_embeddings[0]) + 0.0001
+    threshold = np.pi/16
+    rejected = 0
     for i, (image_path, mask_path, image, embedding) in enumerate(
         zip(image_paths, mask_paths, images, image_embeddings)
     ):
         # Create a document from the image and mask
         # and add to the store
-        image_vector_store.add(
-            doc=PromptImageDocument(
-                id=i,
-                embedding=embedding,
-                image=image if store_images else None,
-                mask=open_image(mask_path) if store_images else None,
-                image_path=image_path,
-                mask_path=mask_path,
+        if cosine_similarity(embedding, initial_vector) < 0.95:
+            image_vector_store.add(
+                doc=PromptImageDocument(
+                    id=i,
+                    embedding=embedding,
+                    image=image if store_images else None,
+                    mask=open_image(mask_path) if store_images else None,
+                    image_path=image_path,
+                    mask_path=mask_path,
+                )
             )
-        )
+            console.log(f"cosine similarity: {cosine_similarity(initial_vector, embedding)}")
+            initial_vector = embedding
+        else:
+            rejected += 1
+        #print(f"rejected images: {rejected}")
 
     return image_vector_store
 

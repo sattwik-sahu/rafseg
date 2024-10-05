@@ -53,6 +53,8 @@ def main(
     )
     test_mask_paths = sorted(list(test_masks_dir.glob("*.png")), key=lambda x: x.name)
 
+    console.print(test_image_paths, test_mask_paths)
+
     # Run pipeline on all images
     mean_iou: float = 0.0
     with Progress() as progress:
@@ -60,10 +62,15 @@ def main(
         for i, (image_path, mask_path) in enumerate(
             zip(test_image_paths, test_mask_paths)
         ):
-            # console.log({"query_image_path": image_path, "query_mask_path": mask_path})
+            console.log({"query_image_path": image_path, "query_mask_path": mask_path})
 
             query_image = open_image(image_path)
             best_matches, output = pipeline.run(x=query_image, k=k)
+
+            console.log({
+                "prompt_image_paths": [doc.image_path for doc in best_matches],
+                "prompt_mask_paths": [doc.mask_path for doc in best_matches],
+            })
 
             output_mask: torch.Tensor = 255.0 * (output[0] >= 128)
             test_image_mask = torch.tensor(np.array(open_image(mask_path)))
@@ -83,10 +90,26 @@ def main(
                     output_mask=output_mask,
                     title="Testing pipeline with Prompts",
                 )
-            plt.show()
+                plt.show()
 
             # Calculate iou and update mean iou
             iou: float = calculate_binary_iou(pred=output_mask, target=test_image_mask)
+            if iou < 0.5:
+                plot_query_pipeline_prompts_and_output(
+                    prompt_images=[
+                        m.image or np.array(open_image(m.image_path))
+                        for m in best_matches
+                    ],
+                    prompt_masks=[
+                        m.mask or np.array(open_image(m.mask_path))
+                        for m in best_matches
+                    ],
+                    query_image=query_image,
+                    query_ground_truth=test_image_mask,
+                    output_mask=output_mask,
+                    title="Testing pipeline with Prompts",
+                )
+                plt.show()
             if iou == 0.0:
                 iou = mean_iou
             mean_iou += (iou - mean_iou) / (i + 1)

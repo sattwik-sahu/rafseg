@@ -1900,6 +1900,22 @@ files = [
 test = ["mypy (>=1.0)", "pytest (>=7.0.0)"]
 
 [[package]]
+name = "mplcursors"
+version = "0.5.3"
+description = "Interactive data selection cursors for Matplotlib."
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "mplcursors-0.5.3.tar.gz", hash = "sha256:cb220c8dffaafde195e138faec5654737267f7685d1f0503618cdc333aca0966"},
+]
+
+[package.dependencies]
+matplotlib = ">=3.1,<3.7.1 || >3.7.1"
+
+[package.extras]
+docs = ["pandas", "pydata_sphinx_theme (!=0.10.1)", "sphinx", "sphinx-gallery"]
+
+[[package]]
 name = "mpmath"
 version = "1.3.0"
 description = "Python library for arbitrary-precision floating-point arithmetic"
@@ -4254,4 +4270,4 @@ PyYAML = "*"
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.12,<3.13"
-content-hash = "9f3861f144ebd316f3e289a855de3c652cd5bea9cf24a80aac5eaaa45b1085d0"
+content-hash = "e1e08c29de46ddfde9012910d72e9a947ddf14729e5d57b481702910a3c571ce"

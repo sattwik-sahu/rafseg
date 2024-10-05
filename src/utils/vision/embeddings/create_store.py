@@ -1,4 +1,9 @@
 from utils.vision.embeddings.vector_store import VectorStore, DocumentVector
+# from utils.vision.embeddings.image_vector_store import (
+#     ImageVectorStore,
+#     PromptImageDocument,
+# )
+from utils.metrics.cos import cosine_similarity
 from PIL.Image import Image, open as open_image
 import typing as t
 from pathlib import Path
@@ -31,19 +36,24 @@ def create_image_vector_store_from_dirs(
     store_pil_images: bool = True,
 ) -> VectorStore:
     # Get all jpg, png images from the images_dir directory
-    image_paths: t.List[Path] = natsort.natsorted(
-        glob(f"{images_dir}/*.jpg") + glob(f"{images_dir}/*.png")
-    )
+    image_paths: t.List[Path] = [
+        Path(p)
+        for p in natsort.natsorted(
+            glob(f"{images_dir}/*.jpg") + glob(f"{images_dir}/*.png")
+        )
+    ]
 
     # Get all masks from the masks_dir directory (masks are stored only as png)
-    mask_paths: t.List[Path] = natsort.natsorted(glob(os.path.join(masks_dir, "*.png")))
+    mask_paths: t.List[Path] = [
+        Path(p) for p in natsort.natsorted(glob(os.path.join(masks_dir, "*.png")))
+    ]
 
     # Get all images
     images: t.List[Image] = [open_image(image_path) for image_path in image_paths]
 
     # Embed all images in one go
     image_embeddings: np.ndarray = embedding_pipeline(x=images)
-
+    initial_embedding = np.zeros_like(image_embeddings[0])
     # Initialize the vector store
     vector_store = VectorStore()
     for i, (image_path, mask_path, image, embedding) in enumerate(
@@ -53,17 +63,18 @@ def create_image_vector_store_from_dirs(
         if not store_pil_images:
             image = None
             mask = None
-
-        vector_store.add(
-            doc=PromptImageDocument(
-                id=i,
-                embedding=embedding,
-                image=image,
-                mask=mask,
-                image_path=image_path,
-                mask_path=mask_path,
+        if cosine_similarity(embedding, initial_embedding) > np.cos(np.pi/2):
+            vector_store.add(
+                doc=PromptImageDocument(
+                    id=i,
+                    embedding=embedding,
+                    image=image,
+                    mask=mask,
+                    image_path=image_path,
+                    mask_path=mask_path,
+                )
             )
-        )
+            initial_embedding = embedding
     return vector_store
 
 
