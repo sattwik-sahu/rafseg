@@ -11,12 +11,16 @@ from natsort import natsort
 from glob import glob
 import os
 import pickle
+
 from utils.metrics.cos import cosine_similarity
 from utils.vision.embeddings.imgbeddings_pipeline import (
     Imgbeddings,
     ImgbeddingsPipeline,
 )
 from rich.console import Console
+
+
+console = Console()
 
 
 class ImageVectorStore(VectorStore[PromptImageDocument]):
@@ -28,10 +32,10 @@ class ImageVectorStore(VectorStore[PromptImageDocument]):
         self, query_vec: np.ndarray
     ) -> np.ndarray | torch.Tensor:
         vectors: np.ndarray = self.vectors
-        query_vec = torch.tensor(query_vec).repeat((vectors.shape[0], 1))
+        query_arr = torch.tensor(query_vec).repeat((vectors.shape[0], 1))
         similarity = torch.nn.CosineSimilarity()
-        return similarity(query_vec, torch.tensor(vectors))
-    
+        return similarity(query_arr, vectors)
+
     def _remove_image_objects(self) -> None:
         for doc in self._documents:
             doc.image = None
@@ -44,7 +48,6 @@ def ingest_dir_to_image_vector_store(
     embedding_pipeline: EmbeddingPipeline[t.Any, Image],
     store_images: bool = True,
     image_vector_store: ImageVectorStore | None = None,
-    sampling_threshold: float = np.inf,
 ) -> ImageVectorStore:
     """
     Creates an ImageVectorStore by reading possible prompt images from
@@ -81,47 +84,64 @@ def ingest_dir_to_image_vector_store(
         in `masks_dir` at k-th position will be considered as its mask.
     """
     # Get all jpg, png images from the images_dir directory
-    image_paths: t.List[Path] = natsort.natsorted(
-        glob(f"{images_dir}/*.jpg") + glob(f"{images_dir}/*.png")
-    )
+    image_paths: t.List[Path] = [
+        Path(path)
+        for path in natsort.natsorted(
+            glob(f"{images_dir}/*.jpg") + glob(f"{images_dir}/*.png")
+        )
+    ]
 
     # Get all masks from the masks_dir directory (masks are stored only as png)
-    mask_paths: t.List[Path] = natsort.natsorted(glob(os.path.join(masks_dir, "*.png")))
+    mask_paths: t.List[Path] = [
+        Path(path) for path in natsort.natsorted(glob(os.path.join(masks_dir, "*.png")))
+    ]
 
-    # Get all images
-    images: t.List[Image] = [open_image(image_path) for image_path in image_paths]
-
-    # Embed all images in one go
-    image_embeddings: np.ndarray = embedding_pipeline(x=images)
-
-    # Initialize the vector store
-    # If `None`, create a new ImageVectorStore
     image_vector_store = image_vector_store or ImageVectorStore()
     console = Console()
-    initial_vector = np.zeros_like(image_embeddings[0]) + 0.0001
-    threshold = np.pi/16
+    initial_vector = np.zeros(768) + 0.0001
+    threshold = 0.98
     rejected = 0
-    for i, (image_path, mask_path, image, embedding) in enumerate(
-        zip(image_paths, mask_paths, images, image_embeddings)
-    ):
-        # Create a document from the image and mask
-        # and add to the store
-        if cosine_similarity(embedding, initial_vector) < 0.95:
-            image_vector_store.add(
-                doc=PromptImageDocument(
-                    id=i,
-                    embedding=embedding,
-                    image=image if store_images else None,
-                    mask=open_image(mask_path) if store_images else None,
-                    image_path=image_path,
-                    mask_path=mask_path,
+
+    batch_size = 64
+
+    for batch in range(0, len(image_paths), batch_size):
+        console.log(f"## Ingesting batch {batch // batch_size + 1}...")
+
+        # Get all images
+        images: t.List[Image] = [
+            open_image(image_path)
+            for image_path in image_paths[batch : batch + batch_size]
+        ]
+
+        # Embed all images in one go
+        console.log("Embedding batch images")
+        image_embeddings: np.ndarray = embedding_pipeline(x=images)
+
+        # Initialize the vector store
+        # If `None`, create a new ImageVectorStore
+
+        for i, (image_path, mask_path, image, embedding) in enumerate(
+            zip(image_paths, mask_paths, images, image_embeddings)
+        ):
+            # Create a document from the image and mask
+            # and add to the store
+            sim = cosine_similarity(initial_vector, embedding)
+            console.log(f"cosine similarity: {sim}")
+            if sim < threshold:
+                image_vector_store.add(
+                    doc=PromptImageDocument(
+                        id=i,
+                        embedding=embedding,
+                        image=image if store_images else None,
+                        mask=open_image(mask_path) if store_images else None,
+                        image_path=image_path,
+                        mask_path=mask_path,
+                    )
                 )
-            )
-            console.log(f"cosine similarity: {cosine_similarity(initial_vector, embedding)}")
-            initial_vector = embedding
-        else:
-            rejected += 1
-        #print(f"rejected images: {rejected}")
+                initial_vector = embedding
+            else:
+                rejected += 1
+        print(f"No. of rejected images: {rejected}")
 
     return image_vector_store
 

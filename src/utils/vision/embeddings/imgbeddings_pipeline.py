@@ -8,7 +8,9 @@ from torch._tensor import Tensor
 from typing_extensions import override
 
 from utils.vision.embeddings.base import EmbeddingPipeline
-
+import numpy as np
+from transformers import AutoImageProcessor, AutoModel
+import torch
 
 class ImgbeddingsPipeline(EmbeddingPipeline[Imgbeddings, Image]):
     """
@@ -25,3 +27,9 @@ class ImgbeddingsPipeline(EmbeddingPipeline[Imgbeddings, Image]):
         self, x: Image | t.List[Image]
     ) -> ndarray | Tensor | t.List[float] | t.List[t.List[float]]:
         return self.model.to_embeddings(inputs=x)
+
+
+        
+
+    
+

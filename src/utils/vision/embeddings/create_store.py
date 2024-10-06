@@ -1,4 +1,5 @@
 from utils.vision.embeddings.vector_store import VectorStore, DocumentVector
+
 # from utils.vision.embeddings.image_vector_store import (
 #     ImageVectorStore,
 #     PromptImageDocument,
@@ -19,6 +20,9 @@ from utils.vision.embeddings.imgbeddings_pipeline import (
 from natsort import natsort
 import pickle
 from rich.console import Console
+import typer
+from typing_extensions import Annotated
+from typing import List
 
 
 @dataclass
@@ -63,7 +67,7 @@ def create_image_vector_store_from_dirs(
         if not store_pil_images:
             image = None
             mask = None
-        if cosine_similarity(embedding, initial_embedding) > np.cos(np.pi/2):
+        if cosine_similarity(embedding, initial_embedding) > np.cos(np.pi / 2):
             vector_store.add(
                 doc=PromptImageDocument(
                     id=i,

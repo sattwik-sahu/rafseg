@@ -66,6 +66,10 @@ class EmbeddingPipeline[T_Model, T_Input](ABC):
         """
         if isinstance(y, np.ndarray):
             return y
+        
+        # if y.device.type == 'cuda':
+        #     return y.cpu().detach().numpy()
+        
         return np.array(y)
 
     @abstractmethod

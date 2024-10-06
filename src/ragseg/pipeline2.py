@@ -1,10 +1,9 @@
-import numpy as np
 import torch
 from PIL.Image import Image, open as open_image
 from utils.vision.embeddings.image_vector_store import (
     ImageVectorStore,
     load_image_vector_store,
-    PromptImageDocument
+    PromptImageDocument,
 )
 from utils.vision.embeddings.imgbeddings_pipeline import (
     ImgbeddingsPipeline,
@@ -18,13 +17,16 @@ from utils.vision.seg_gpt import SegGPT_Inference
 from pathlib import Path
 import typing as t
 
+from utils.metrics.cos import cosine_similarity
+from utils.retrieval.mmr_retriever import MaximumMarginalRelevanceRetriever
 
-class Pipeline:
+
+class Pipeline2:
     def __init__(
         self,
         vector_store_path: str | Path,
         seg_gpt_weights_path: str | Path,
-        embedding_model: str,
+        embedding_model: t.Literal["clip", "dino"],
     ) -> None:
         seg_gpt: SegGPT = load_model(
             weights_path=seg_gpt_weights_path,
@@ -35,17 +37,30 @@ class Pipeline:
         self.inference: SegGPT_Inference = SegGPT_Inference(
             model=seg_gpt, device="cuda"
         )
-        if embedding_model == 'clip':
+        if embedding_model == "clip":
             self.embedding_pipeline = ImgbeddingsPipeline(model=Imgbeddings(gpu=True))
-        elif embedding_model == 'dino':
+        elif embedding_model == "dino":
             self.embedding_pipeline = DinoPipeline()
         else:
-            raise Exception("Correct embedding model not chosen. Choose from dino or clip")
+            raise Exception(
+                "Correct embedding model not chosen. Choose from dino or clip"
+            )
         self.vector_store: ImageVectorStore = load_image_vector_store(
             path=vector_store_path
         )
 
-    def run(self, x: Image, k: int = 3) -> t.Tuple[t.List[PromptImageDocument], torch.Tensor]:
+        # Create the retriever
+        self.retriever = MaximumMarginalRelevanceRetriever[
+            ImageVectorStore, PromptImageDocument
+        ](
+            vector_store=self.vector_store,
+            param_lambda=0.9,
+            sim_func=cosine_similarity,
+        )
+
+    def run(
+        self, x: Image, k: int = 3
+    ) -> t.Tuple[t.List[PromptImageDocument], torch.Tensor]:
         """
         Runs the pipeline on the given input `x`.
 
@@ -62,18 +77,25 @@ class Pipeline:
         query_embedding = self.embedding_pipeline(x=x)
 
         # Get best matches from iamge vector store
-        best_matches: t.List[PromptImageDocument] = self.vector_store.retrieve(query_embedding=query_embedding, k=k)
+        best_matches: t.List[PromptImageDocument] = self.retriever(
+            query_vector=query_embedding, k=k
+        )
+        # best_matches: t.List[PromptImageDocument] = self.vector_store.retrieve(
+        #     query_embedding=query_embedding, k=k
+        # )
 
         # Get the images and masks from the best matches
-        prompt_images: t.List[Image] = [doc.image or open_image(doc.image_path) for doc in best_matches]
-        prompt_masks: t.List[Image] = [doc.mask or open_image(doc.mask_path) for doc in best_matches]
-        
+        prompt_images: t.List[Image] = [
+            doc.image or open_image(doc.image_path) for doc in best_matches
+        ]
+        prompt_masks: t.List[Image] = [
+            doc.mask or open_image(doc.mask_path) for doc in best_matches
+        ]
+
         # Perform few shot segmentation on the query_image
         # using prompt_images and prompt_masks
         output: torch.Tensor = self.inference(
-            query_image=x,
-            prompt_images=prompt_images,
-            prompt_masks=prompt_masks
+            query_image=x, prompt_images=prompt_images, prompt_masks=prompt_masks
         )
 
         return best_matches, output

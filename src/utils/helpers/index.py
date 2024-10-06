@@ -12,19 +12,33 @@ from utils.vision.embeddings.image_vector_store import (
     ingest_dir_to_image_vector_store,
 )
 from utils.vision.embeddings.imgbeddings_pipeline import ImgbeddingsPipeline
+from utils.vision.embeddings.dino_pipeline import DinoPipeline
 
-app = typer.Typer()
+app = typer.Typer(name="index", help="Create a vector store")
 console = Console()
 
 
-@app.command()
+@app.command(
+    name="images",
+    help="Index images and masks from directories to an image vector store.",
+)
 def command(
     image_dir: Annotated[t.List[Path], typer.Option(help="The dir containing images")],
     mask_dir: Annotated[t.List[Path], typer.Option(help="The dir containing masks")],
-    vector_store_path: Annotated[Path, typer.Argument(help="The path to save the image vector store")]
+    embedding_model: Annotated[
+        str, typer.Argument(help='Emedding Model to Use: "clip" | "dino"')
+    ],
+    vector_store_path: Annotated[
+        Path, typer.Argument(help="The path to save the image vector store")
+    ],
 ):
     # Create the embedding pipeline
-    embedding_pipeline = ImgbeddingsPipeline(model=Imgbeddings(gpu=True))
+    if embedding_model == "clip":
+        embedding_pipeline = ImgbeddingsPipeline(model=Imgbeddings(gpu=True))
+    elif embedding_model == "dino":
+        embedding_pipeline = DinoPipeline()
+    else:
+        raise Exception("Please choose embedding model correctly [dino, clip]")
 
     # Create the image vector store
     image_vector_store = ImageVectorStore()
@@ -38,16 +52,17 @@ def command(
             description="Ingest folders to image vector store", total=n_dirs
         )
         for i, (image_dir_, mask_dir_) in enumerate(zip(image_dir, mask_dir)):
+            console.log(
+                f"Ingesting dir {i + 1}: {image_dir_.as_posix()} | {mask_dir_.as_posix()}"
+            )
             ingest_dir_to_image_vector_store(
                 images_dir=image_dir_,
                 masks_dir=mask_dir_,
                 embedding_pipeline=embedding_pipeline,
                 image_vector_store=image_vector_store,
-                store_images=False
+                store_images=False,
             )
-            console.log(
-                f"Ingested dir {i + 1}: {image_dir_.as_posix()} | {mask_dir_.as_posix()}"
-            )
+            console.log(f"Stored {len(image_vector_store.documents)} documents.")
             progress.advance(root_task)
     console.log(
         f"Created image vector store with {len(image_vector_store.documents)} documents"
