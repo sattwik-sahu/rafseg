@@ -45,7 +45,7 @@ class Pipeline:
             path=vector_store_path
         )
 
-    def run(self, x: Image, k: int = 3) -> t.Tuple[t.List[PromptImageDocument], torch.Tensor]:
+    def run(self, x: Image, k: int = 3) -> t.Tuple[t.List[PromptImageDocument], t.List[float], torch.Tensor]:
         """
         Runs the pipeline on the given input `x`.
 
@@ -62,7 +62,10 @@ class Pipeline:
         query_embedding = self.embedding_pipeline(x=x)
 
         # Get best matches from iamge vector store
-        best_matches: t.List[PromptImageDocument] = self.vector_store.retrieve(query_embedding=query_embedding, k=k)
+        # best_matches: t.List[PromptImageDocument], best_scores = self.vector_store.retrieve(query_embedding=query_embedding, k=k)
+        best_matches_ands_scores: t.Tuple[t.List[PromptImageDocument], t.List[float]] = self.vector_store.retrieve(query_embedding=query_embedding, k=k)
+
+        best_matches, best_scores = best_matches_ands_scores[0], best_matches_ands_scores[1]
 
         # Get the images and masks from the best matches
         prompt_images: t.List[Image] = [doc.image or open_image(doc.image_path) for doc in best_matches]
@@ -76,4 +79,4 @@ class Pipeline:
             prompt_masks=prompt_masks
         )
 
-        return best_matches, output
+        return best_matches, best_scores, output

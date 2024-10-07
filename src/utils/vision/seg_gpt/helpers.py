@@ -69,8 +69,10 @@ def plot_query_pipeline_prompts_and_output(
     prompt_images: t.List[Image | np.ndarray],
     prompt_masks: t.List[Image | np.ndarray],
     query_image: Image,
+    match_scores: t.List[float],
     output_mask: torch.Tensor,
     title: str,
+    iou: float,
     query_ground_truth: t.Optional[Image | torch.Tensor] = None,
 ):
     n_prompts = len(prompt_images)
@@ -94,10 +96,10 @@ def plot_query_pipeline_prompts_and_output(
         ax.axis("off")
 
     # Display prompt images and masks on the left two columns
-    for i, (img, mask) in enumerate(zip(prompt_images, prompt_masks)):
+    for i, (img, mask, score) in enumerate(zip(prompt_images, prompt_masks, match_scores)):
         # Prompt image
         ax_img = fig.add_subplot(gs[i, 0])
-        display_image(ax_img, img, f"Prompt {i+1}")
+        display_image(ax_img, img, f"Prompt {i+1} | Score: {score:.2f}")
 
         # Prompt mask
         ax_mask = fig.add_subplot(gs[i, 1])
@@ -121,7 +123,7 @@ def plot_query_pipeline_prompts_and_output(
     ax_output = fig.add_subplot(right_gs[-1])
     ax_output.imshow(query_image)
     ax_output.imshow(output_mask, alpha=0.3, cmap="jet")
-    ax_output.set_title("Output", fontsize=16, pad=10)
+    ax_output.set_title(f"Output | IoU {iou}", fontsize=16, pad=10)
     ax_output.axis("off")
 
     # Add title to the entire figure

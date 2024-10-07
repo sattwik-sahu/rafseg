@@ -32,9 +32,10 @@ class ImageVectorStore(VectorStore[PromptImageDocument]):
         self, query_vec: np.ndarray
     ) -> np.ndarray | torch.Tensor:
         vectors: np.ndarray = self.vectors
+        vectors_as_tensor = torch.tensor(vectors)
         query_arr = torch.tensor(query_vec).repeat((vectors.shape[0], 1))
         similarity = torch.nn.CosineSimilarity()
-        return similarity(query_arr, vectors)
+        return similarity(query_arr, vectors_as_tensor)
 
     def _remove_image_objects(self) -> None:
         for doc in self._documents:
@@ -99,7 +100,7 @@ def ingest_dir_to_image_vector_store(
     image_vector_store = image_vector_store or ImageVectorStore()
     console = Console()
     initial_vector = np.zeros(768) + 0.0001
-    threshold = 0.98
+    threshold = 0.95
     rejected = 0
 
     batch_size = 64

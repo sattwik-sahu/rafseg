@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "ragseg"
-version = "0.1.0"
+version = "0.1.3a0"
 description = ""
 authors = ["Sattwik Sahu <sattwik21@iiserb.ac.in>"]
 readme = "README.md"

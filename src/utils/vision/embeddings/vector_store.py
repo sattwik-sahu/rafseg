@@ -66,7 +66,7 @@ class VectorStore[T_Document: DocumentVector](ABC):
             if max_similarity > threshold:
                 self._documents.remove(doc)
 
-    def retrieve(self, query_embedding: np.ndarray, k: int) -> t.List[T_Document]:
+    def retrieve(self, query_embedding: np.ndarray, k: int) -> tuple[t.List[T_Document], t.List[float]]:
         """
         Calculates similarity to all vectors in the index and returns the
         `k` most similar vectors' corresponding documents.
@@ -81,10 +81,10 @@ class VectorStore[T_Document: DocumentVector](ABC):
         """
         # This gets the indexes of the top k similar embeddings and
         # gets those indexes from the documents array
-        best_indexes = np.argsort(
-            self._get_similarity_scores(query_vec=query_embedding)
-        )[-k:]
-        return [self.documents[i] for i in best_indexes]
+        scores = self._get_similarity_scores(query_vec=query_embedding)
+        best_indexes = np.argsort(scores)[-k:]
+        best_scores = [float(scores[i]) for i in best_indexes]
+        return ([self.documents[i] for i in best_indexes], best_scores)
 
     @property
     def documents(self) -> t.List[T_Document]:

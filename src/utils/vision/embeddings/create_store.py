@@ -20,9 +20,6 @@ from utils.vision.embeddings.imgbeddings_pipeline import (
 from natsort import natsort
 import pickle
 from rich.console import Console
-import typer
-from typing_extensions import Annotated
-from typing import List
 
 
 @dataclass
@@ -31,6 +28,7 @@ class PromptImageDocument(DocumentVector):
     mask: Image | None
     image_path: str | Path
     mask_path: str | Path
+    match_score: float | None = None
 
 
 def create_image_vector_store_from_dirs(
