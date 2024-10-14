@@ -8,7 +8,7 @@ Retrieval Augmented Few-Shot Segmentation for Offroad
 
 ## Abstract
 
-_To be updated_
+_To be updated later_
 
 ## Usage
 
