@@ -11,6 +11,7 @@ from utils.vision.embeddings.imgbeddings_pipeline import (
     Imgbeddings,
 )
 from utils.vision.embeddings.dino_pipeline import DinoPipeline
+from utils.vision.embeddings.vit_pipeline import VitPipeline
 
 from utils.vision.seg_gpt.helpers import load_model
 from utils.vision.seg_gpt.model import SegGPT, seg_gpt_pretrained_model_builder
@@ -29,7 +30,7 @@ class Pipeline:
         seg_gpt: SegGPT = load_model(
             weights_path=seg_gpt_weights_path,
             model_builder=seg_gpt_pretrained_model_builder,
-            seg_type="instance",
+            seg_type="semantic",
             device="cuda",
         ).to("cuda")
         self.inference: SegGPT_Inference = SegGPT_Inference(
@@ -39,13 +40,15 @@ class Pipeline:
             self.embedding_pipeline = ImgbeddingsPipeline(model=Imgbeddings(gpu=True))
         elif embedding_model == 'dino':
             self.embedding_pipeline = DinoPipeline()
+        elif embedding_model == 'vit':
+            self.embedding_pipeline = VitPipeline()
         else:
-            raise Exception("Correct embedding model not chosen. Choose from dino or clip")
+            raise Exception("Correct embedding model not chosen. Choose from dino | clip | vit")
         self.vector_store: ImageVectorStore = load_image_vector_store(
             path=vector_store_path
         )
 
-    def run(self, x: Image, k: int = 3) -> t.Tuple[t.List[PromptImageDocument], t.List[float], torch.Tensor]:
+    def run(self, x: Image, k: int = 3) -> t.Tuple[t.List[t.Tuple[PromptImageDocument, float]], torch.Tensor]:
         """
         Runs the pipeline on the given input `x`.
 
@@ -63,13 +66,15 @@ class Pipeline:
 
         # Get best matches from iamge vector store
         # best_matches: t.List[PromptImageDocument], best_scores = self.vector_store.retrieve(query_embedding=query_embedding, k=k)
-        best_matches_ands_scores: t.Tuple[t.List[PromptImageDocument], t.List[float]] = self.vector_store.retrieve(query_embedding=query_embedding, k=k)
+        best_docs_and_scores: t.List[t.Tuple[PromptImageDocument, float]] = self.vector_store.retrieve(query_embedding=query_embedding, k=k)
 
-        best_matches, best_scores = best_matches_ands_scores[0], best_matches_ands_scores[1]
+        # best_docs, best_scores = best_docs_and_scores[0], best_docs_and_scores[1]
+        # print(best_indexes, best_scores)
+        # best_matches: t.List[PromptImageDocument] = [self.vector_store.documents[i] for i in best_indexes]
 
         # Get the images and masks from the best matches
-        prompt_images: t.List[Image] = [doc.image or open_image(doc.image_path) for doc in best_matches]
-        prompt_masks: t.List[Image] = [doc.mask or open_image(doc.mask_path) for doc in best_matches]
+        prompt_images: t.List[Image] = [doc.image or open_image(doc.image_path) for doc, score in best_docs_and_scores]
+        prompt_masks: t.List[Image] = [doc.mask or open_image(doc.mask_path) for doc, score in best_docs_and_scores]
         
         # Perform few shot segmentation on the query_image
         # using prompt_images and prompt_masks
@@ -79,4 +84,4 @@ class Pipeline:
             prompt_masks=prompt_masks
         )
 
-        return best_matches, best_scores, output
+        return best_docs_and_scores, output

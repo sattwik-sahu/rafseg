@@ -13,6 +13,7 @@ from utils.vision.embeddings.image_vector_store import (
 )
 from utils.vision.embeddings.imgbeddings_pipeline import ImgbeddingsPipeline
 from utils.vision.embeddings.dino_pipeline import DinoPipeline
+from utils.vision.embeddings.vit_pipeline import VitPipeline
 
 app = typer.Typer(name="index", help="Create a vector store")
 console = Console()
@@ -26,7 +27,7 @@ def command(
     image_dir: Annotated[t.List[Path], typer.Option(help="The dir containing images")],
     mask_dir: Annotated[t.List[Path], typer.Option(help="The dir containing masks")],
     embedding_model: Annotated[
-        str, typer.Argument(help='Emedding Model to Use: "clip" | "dino"')
+        str, typer.Argument(help='Emedding Model to Use: "clip" | "dino | vit"')
     ],
     vector_store_path: Annotated[
         Path, typer.Argument(help="The path to save the image vector store")
@@ -37,8 +38,10 @@ def command(
         embedding_pipeline = ImgbeddingsPipeline(model=Imgbeddings(gpu=True))
     elif embedding_model == "dino":
         embedding_pipeline = DinoPipeline()
+    elif embedding_model == "vit":
+        embedding_pipeline = VitPipeline()
     else:
-        raise Exception("Please choose embedding model correctly [dino, clip]")
+        raise Exception("Please choose embedding model correctly [dino, clip, vit]")
 
     # Create the image vector store
     image_vector_store = ImageVectorStore()

@@ -30,6 +30,9 @@ class PromptImageDocument(DocumentVector):
     mask_path: str | Path
     match_score: float | None = None
 
+    def __hash__(self) -> int:
+        return hash(self.image_path)
+
 
 def create_image_vector_store_from_dirs(
     images_dir: str | Path,

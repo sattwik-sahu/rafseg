@@ -1,8 +1,9 @@
 import torch
-
+from typing import Union
+import numpy as np
 
 def calculate_binary_iou(
-    pred: torch.Tensor, target: torch.Tensor, threshold: float = 0.5
+    pred: Union[torch.Tensor, np.ndarray], target: Union[torch.Tensor, np.ndarray], threshold: float = 0.5
 ):
     """
     Calculates IoU for binary segmentation (0 and 1 values).
@@ -15,7 +16,10 @@ def calculate_binary_iou(
     Returns:
         float: IoU score.
     """
-
+    if pred.dtype == np.uint8:
+        pred = torch.tensor(pred)
+    if target.dtype == np.uint8:
+        target = torch.tensor(target)
     # Convert ground truth from {0, 255} to {0, 1}
     target = (target == 255).int()
 

@@ -11,11 +11,11 @@ import numpy as np
 from transformers import AutoImageProcessor, AutoModel
 import torch
 
-class DinoPipeline(EmbeddingPipeline):
+class VitPipeline(EmbeddingPipeline):
     def __init__(self) -> None:
         self.device = 'cuda' if torch.cuda.is_available else 'cpu'
-        self.processor = AutoImageProcessor.from_pretrained('facebook/dinov2-base')
-        self.model = AutoModel.from_pretrained('facebook/dinov2-base').to(self.device)
+        self.processor = AutoImageProcessor.from_pretrained('google/vit-base-patch16-224')
+        self.model = AutoModel.from_pretrained('google/vit-base-patch16-224').to(self.device)
         
 
     @override
@@ -24,7 +24,8 @@ class DinoPipeline(EmbeddingPipeline):
         ) -> ndarray | Tensor | t.List[float] | t.List[t.List[float]]:
 
         inputs = self.processor(images=x, return_tensors="pt").to(self.device)
-        outputs = self.model(**inputs)
+        with torch.no_grad():
+            outputs = self.model(**inputs)
 
         last_hidden_states = outputs.last_hidden_state[:, 0, :]
 

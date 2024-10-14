@@ -12,7 +12,7 @@ from typing_extensions import Annotated
 
 from ragseg.pipeline import Pipeline
 from ragseg.pipeline2 import Pipeline2
-from utils.metrics.iou import calculate_binary_iou
+from assisted_pilot.iou import calculate_binary_iou
 from utils.vision.seg_gpt.helpers import plot_query_pipeline_prompts_and_output
 
 import random
@@ -28,6 +28,7 @@ app.add_typer(index_app)
 class EmbeddingModel(Enum):
     dino = "dino"
     clip = "clip"
+    vit = "vit"
 
 
 @app.command("eval", help="Run RAGSeg in evaluation mode")
@@ -36,7 +37,7 @@ def main(
     masks: Annotated[Path, typer.Argument(help="Test masks directory")],
     embedding_model: Annotated[
         EmbeddingModel,
-        typer.Option(help="Embedding model to use [dino | clip]"),
+        typer.Option(help="Embedding model to use [dino | clip | vit]"),
     ],
     vector_store_path: Annotated[Path, typer.Option(help="Path to the vector store")],
     k: Annotated[
@@ -78,29 +79,30 @@ def main(
     )
     test_mask_paths = sorted(list(test_masks_dir.glob("*.png")), key=lambda x: x.name)
 
-    test_image_and_mask_paths = list(zip(test_image_paths, test_mask_paths))
-    #shuffle the test set
-    random.shuffle(test_image_and_mask_paths)
-
-    console.print(test_image_paths, test_mask_paths)
+    # console.print(test_image_paths, test_mask_paths)
+    combined = list(zip(test_image_paths, test_mask_paths))
+    random.shuffle(combined)
 
     # Run pipeline on all images
     mean_iou: float = 0.0
     with Progress() as progress:
         task = progress.add_task("Evaluating images", total=len(test_image_paths))
         for i, (image_path, mask_path) in enumerate(
-            test_image_and_mask_paths
+            combined
         ):
-            console.log({"query_image_path": image_path, "query_mask_path": mask_path})
+            console.log({"query_image_path": image_path, 
+                         "query_mask_path": mask_path})
 
             query_image = open_image(image_path)
-            best_matches, match_scores, output = pipeline.run(x=query_image, k=k)
+            best_docs_and_scores, output = pipeline.run(x=query_image, k=k)
 
             console.log(
                 {
-                    "prompt_image_paths": [doc.image_path for doc in best_matches],
-                    "prompt_mask_paths": [doc.mask_path for doc in best_matches],
-                    "match_scores": match_scores,
+                    "prompt_image_paths": [doc.image_path for doc, score in best_docs_and_scores],
+                    "prompt_mask_paths": [doc.mask_path for doc, score in best_docs_and_scores],
+                    "match_scores": [score for doc, score in best_docs_and_scores],
+                    "vector_store": vector_store_path,
+                    "vector_store_indexes": [doc.id for doc, score in best_docs_and_scores],
                 }
             )
 
@@ -113,25 +115,31 @@ def main(
                 plot_query_pipeline_prompts_and_output(
                     prompt_images=[
                         m.image or np.array(open_image(m.image_path))
-                        for m in best_matches
+                        for m, s in best_docs_and_scores
                     ],
                     prompt_masks=[
                         m.mask or np.array(open_image(m.mask_path))
-                        for m in best_matches
+                        for m,s  in best_docs_and_scores
                     ],
                     query_image=query_image,
+                    query_image_path=image_path,
                     query_ground_truth=test_image_mask,
-                    match_scores=match_scores,
+                    match_scores=[float(s) for m, s in best_docs_and_scores],
                     output_mask=output_mask,
                     iou = iou,
-                    title="Testing pipeline with Prompts",
+                    title=f"Testing pipeline with Prompts | Vector Store {vector_store_path}",
+                    vector_store_indexes=[m.id for m, s in best_docs_and_scores],
                 )
-                plt.show()
+                #create image name using _
+                image_name = image_path.name.replace("/", "_")
+                plt.title(f"image: {image_name} | iou: {iou}")
+                plt.savefig(f"failure_cases/{image_name}")
+                #plt.show()
             if iou == 0.0:
                 iou = mean_iou
             mean_iou += (iou - mean_iou) / (i + 1)
             console.log(
-                f"[yellow][{i + 1}][/] [dim]IoU = {iou}[/] | MIoU = [bright_cyan]{mean_iou}[/]"
+                f"[yellow][{i + 1}][/] [dim]IoU = {iou}[/] | MIoU = [bright_cyan]{mean_iou}[/]\n\n\n"
             )
             progress.advance(task)
 

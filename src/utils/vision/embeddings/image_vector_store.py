@@ -30,12 +30,19 @@ class ImageVectorStore(VectorStore[PromptImageDocument]):
     @override
     def _get_similarity_scores(
         self, query_vec: np.ndarray
-    ) -> np.ndarray | torch.Tensor:
-        vectors: np.ndarray = self.vectors
-        vectors_as_tensor = torch.tensor(vectors)
-        query_arr = torch.tensor(query_vec).repeat((vectors.shape[0], 1))
+    ) -> t.Dict[PromptImageDocument, float]:
+        # vectors: np.ndarray = np.array([doc.embedding for doc in self._documents])
+        # vectors_as_tensor = [torch.Tensor(doc.embedding) for doc in self._documents]
+        query_arr = torch.Tensor(query_vec)
         similarity = torch.nn.CosineSimilarity()
-        return similarity(query_arr, vectors_as_tensor)
+        scores = {}
+        for doc in self.documents:
+            score = similarity(query_arr, torch.tensor(doc.embedding))
+            # print(query_arr.shape, vector.shape, score)
+            scores[doc] = score
+        # scores =torch.tensor(scores)
+        # print(torch.max(scores))
+        return scores
 
     def _remove_image_objects(self) -> None:
         for doc in self._documents:
@@ -104,9 +111,12 @@ def ingest_dir_to_image_vector_store(
     rejected = 0
 
     batch_size = 64
+    id = 0
 
     for batch in range(0, len(image_paths), batch_size):
         console.log(f"## Ingesting batch {batch // batch_size + 1}...")
+        console.log(f"first image: {image_paths[batch]}")
+        # console.log(f"last image: {image_paths[batch + batch_size - 1]}")
 
         # Get all images
         images: t.List[Image] = [
@@ -120,9 +130,9 @@ def ingest_dir_to_image_vector_store(
 
         # Initialize the vector store
         # If `None`, create a new ImageVectorStore
-
+        
         for i, (image_path, mask_path, image, embedding) in enumerate(
-            zip(image_paths, mask_paths, images, image_embeddings)
+            zip(image_paths[batch :batch + batch_size], mask_paths[batch : batch + batch_size], images, image_embeddings)
         ):
             # Create a document from the image and mask
             # and add to the store
@@ -131,7 +141,7 @@ def ingest_dir_to_image_vector_store(
             if sim < threshold:
                 image_vector_store.add(
                     doc=PromptImageDocument(
-                        id=i,
+                        id=id,
                         embedding=embedding,
                         image=image if store_images else None,
                         mask=open_image(mask_path) if store_images else None,
@@ -140,6 +150,7 @@ def ingest_dir_to_image_vector_store(
                     )
                 )
                 initial_vector = embedding
+                id+=1
             else:
                 rejected += 1
         print(f"No. of rejected images: {rejected}")

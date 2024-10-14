@@ -12,7 +12,7 @@ from typing_extensions import Annotated
 import random
 
 from ragseg.pipeline import Pipeline
-from utils.metrics.iou import calculate_binary_iou
+from assisted_pilot.iou import calculate_binary_iou
 from utils.vision.seg_gpt.helpers import plot_query_pipeline_prompts_and_output
 
 app = typer.Typer()

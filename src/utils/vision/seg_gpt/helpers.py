@@ -69,11 +69,13 @@ def plot_query_pipeline_prompts_and_output(
     prompt_images: t.List[Image | np.ndarray],
     prompt_masks: t.List[Image | np.ndarray],
     query_image: Image,
+    query_image_path: Path,
     match_scores: t.List[float],
     output_mask: torch.Tensor,
     title: str,
     iou: float,
     query_ground_truth: t.Optional[Image | torch.Tensor] = None,
+    vector_store_indexes: t.List[float] | None = None,
 ):
     n_prompts = len(prompt_images)
 
@@ -81,7 +83,7 @@ def plot_query_pipeline_prompts_and_output(
     right_rows = 3 if query_ground_truth is not None else 2
 
     # Create a figure with a 3-column layout (prompt images, prompt masks, query/output)
-    fig = plt.figure(figsize=(30, 5 * max(n_prompts, right_rows)))
+    fig = plt.figure(figsize=(20, 5 * max(n_prompts, right_rows)))
     gs = fig.add_gridspec(
         max(n_prompts, right_rows), 3, width_ratios=[1, 1, 2], hspace=0.4, wspace=0.3
     )
@@ -96,10 +98,10 @@ def plot_query_pipeline_prompts_and_output(
         ax.axis("off")
 
     # Display prompt images and masks on the left two columns
-    for i, (img, mask, score) in enumerate(zip(prompt_images, prompt_masks, match_scores)):
+    for i, (img, mask, score, index) in enumerate(zip(prompt_images, prompt_masks, match_scores, vector_store_indexes)):
         # Prompt image
         ax_img = fig.add_subplot(gs[i, 0])
-        display_image(ax_img, img, f"Prompt {i+1} | Score: {score:.2f}")
+        display_image(ax_img, img, f"Prompt {i+1} | Score: {score:.2f} | index: {index}")
 
         # Prompt mask
         ax_mask = fig.add_subplot(gs[i, 1])
@@ -112,7 +114,7 @@ def plot_query_pipeline_prompts_and_output(
 
     # Display query image on top right
     ax_query = fig.add_subplot(right_gs[0])
-    display_image(ax_query, query_image, "Query Image")
+    display_image(ax_query, query_image, f"Query Image: {query_image_path.name}")
 
     # Display query ground truth if provided
     if query_ground_truth is not None:

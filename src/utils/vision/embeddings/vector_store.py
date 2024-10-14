@@ -21,11 +21,11 @@ class VectorStore[T_Document: DocumentVector](ABC):
 
     def __init__(self) -> None:
         self._documents: t.List[T_Document] = []
-        self._vectors: np.ndarray = np.empty(0)
+        # self._vectors: np.ndarray = np.empty(0)
 
-    @property
-    def vectors(self) -> np.ndarray:
-        return np.vstack([doc.embedding for doc in self._documents])
+    # @property
+    # def vectors(self) -> np.ndarray:
+    #     return np.array([doc.embedding for doc in self._documents])
 
     def add(self, doc: T_Document) -> None:
         self._documents.append(doc)
@@ -33,7 +33,7 @@ class VectorStore[T_Document: DocumentVector](ABC):
     @abstractmethod
     def _get_similarity_scores(
         self, query_vec: np.ndarray
-    ) -> np.ndarray | torch.Tensor:
+    ) -> t.Dict[T_Document, float]:
         """
         Calculates the similarity metric between the query vector `query_vec`
         all the different vectors stored in the index.
@@ -66,7 +66,7 @@ class VectorStore[T_Document: DocumentVector](ABC):
             if max_similarity > threshold:
                 self._documents.remove(doc)
 
-    def retrieve(self, query_embedding: np.ndarray, k: int) -> tuple[t.List[T_Document], t.List[float]]:
+    def retrieve(self, query_embedding: np.ndarray, k: int) -> t.List[t.Tuple[T_Document, float]]:
         """
         Calculates similarity to all vectors in the index and returns the
         `k` most similar vectors' corresponding documents.
@@ -82,9 +82,9 @@ class VectorStore[T_Document: DocumentVector](ABC):
         # This gets the indexes of the top k similar embeddings and
         # gets those indexes from the documents array
         scores = self._get_similarity_scores(query_vec=query_embedding)
-        best_indexes = np.argsort(scores)[-k:]
-        best_scores = [float(scores[i]) for i in best_indexes]
-        return ([self.documents[i] for i in best_indexes], best_scores)
+        best_scores = sorted(scores.items(), key=lambda x:x[1],reverse=True)[:k]
+        
+        return best_scores
 
     @property
     def documents(self) -> t.List[T_Document]:
