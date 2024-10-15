@@ -3,7 +3,7 @@ import typing as t
 import cv2
 
 def bottom_square(image: np.ndarray, threshold: float) -> t.Tuple[bool, t.Tuple[int, int, int, int]]:
-    print(f"image demensions: {image.shape}")
+    # print(f"image demensions: {image.shape}")
     #convert bgr to gray
     image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 

@@ -22,12 +22,12 @@ def main(img_dir: str, mask_dir) -> None:
                                 #   target_transform=ToTensor()
                                 )
     # Get indices for every third image
-    indices = list(range(0, len(dataset), 1))
+    indices = list(range(0, len(dataset), 6))
 
     # Create subset dataset
     subset_dataset = Subset(dataset, indices)
-    dataloader = DataLoader(subset_dataset, batch_size=1, shuffle=True)
-    model = ClipSegProcessor(["grass","path"])
+    dataloader = DataLoader(subset_dataset, batch_size=1, shuffle=False)
+    model = ClipSegProcessor(["grass"])
     pooler = Pooler('max')
     segmenter = Segmenter('otsu')
     miou = 0
