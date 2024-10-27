@@ -13,43 +13,42 @@ from tqdm import tqdm
 from criteria import bottom_square
 from map_diff import process_attention_maps, process_attention_maps_weighted
 
-
-
-# ClipSegProcessor.run_model = timeit(ClipSegProcessor.run_model)
-
 def main(img_dir: str, mask_dir) -> None:
-    dataset = SegmentationDataset(img_dir, mask_dir,
-                                #   transform=ToTensor(),
-                                #   target_transform=ToTensor()
-                                )
-    # Get indices for every third image
+    dataset = SegmentationDataset(img_dir, mask_dir)
     indices = list(range(0, len(dataset), 6))
-
-    # Create subset dataset
     subset_dataset = Subset(dataset, indices)
-    dataloader = DataLoader(subset_dataset, batch_size=1, shuffle=True)
+    dataloader = DataLoader(subset_dataset, batch_size=1, shuffle=False)
     
-    positive_anchors = ["gravel", " grass"]
-    negative_anchors = ["trees", "bushes"]
+    positive_anchors = ["grass"]
+    negative_anchors = ["large shrubs", "puddle"]
     anchors = {"positive": positive_anchors, "negative": negative_anchors}
+    
+    # Move model to GPU
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = ClipSegProcessor(anchors)
-    # model_negative = ClipSegProcessor(negative_anchors)
-
+    
     pooler = Pooler('max')
     segmenter = Segmenter('otsu')
     miou = 0
     progress_bar = tqdm(dataloader, desc='Processing images')
 
     for i, (image, mask, img_path, mask_path) in enumerate(progress_bar):
+        # Convert image to tensor and move to GPU
         image = image.squeeze(0).permute(1, 2, 0).numpy()
         image = cv2.resize(image, (1920, image.shape[0]*1920//image.shape[1]))
+        image_tensor = torch.from_numpy(image).permute(2, 0, 1).float().to(model.device)
+        
         mask = mask.squeeze(0).permute(1, 2, 0).numpy()
         mask = cv2.resize(mask, (1920, mask.shape[0]*1920//mask.shape[1]))
         mask = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
+
+        print(image_tensor.device, model.device)
         
+        # Run model on GPU
+        maps: t.List[torch.Tensor] = model.run_model(image_tensor)
         
-        maps: t.List[np.ndarray] = model.run_model(image)
-        # negative_maps: t.List[np.ndarray] = model_negative.run_model(image)
+        # Move maps back to CPU for further processing
+        maps = [m.cpu().numpy() for m in maps]
 
         positive_maps = maps[:len(model.prompts['positive'])]
         negative_maps = maps[len(model.prompts['positive']):]
@@ -61,25 +60,21 @@ def main(img_dir: str, mask_dir) -> None:
         
         segmented_map = segmenter.segment(pooled_map)
 
-        traversable, centre_cell_coords, cell_avg_value = bottom_square(segmented_map, 70)
+        traversable, centre_cell_coords, cell_avg_value = bottom_square(pooled_map, 75)
         start_row, end_row, start_col, end_col = centre_cell_coords
 
         # Draw the bottom center cell on the segmented map
         pooled_map = cv2.rectangle(pooled_map, (start_col, start_row), (end_col, end_row), (0, 0, 255), 2)
         label_pooled = "traversable_pooled" if traversable else "non-traversable_pooled | Please Enter new prompt"
-        #label rectangle
         pooled_map = cv2.putText(pooled_map, f"{label_pooled}", (start_col, start_row-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
-        # Draw the bottom center cell on the segmented map
         segmented_map = cv2.rectangle(segmented_map, (start_col, start_row), (end_col, end_row), (0, 0, 255), 2)
         label = "traversable" if traversable else "non-traversable | Please Enter new prompt"
-        #label rectangle
         segmented_map = cv2.putText(segmented_map, f"{label}", (start_col, start_row-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
         image = cv2.resize(image, (image.shape[1]//(len(maps)+2), image.shape[0]//(len(maps)+2)))
         mask = cv2.resize(mask, (mask.shape[1]//(len(maps)+2), mask.shape[0]//(len(maps)+2)))
         superimposed = cv2.addWeighted(image, 0.7, mask, 0.3, 0)
-        # print(f"image shape: {image.shape}, mask shape: {mask.shape}, pooled_map shape: {pooled_map.shape}, segmented_map shape: {segmented_map.shape}")
         superimposed_map = cv2.addWeighted(image, 0.7, segmented_map, 0.3, 0)
         
         output = [superimposed, superimposed_map] + maps
@@ -87,21 +82,16 @@ def main(img_dir: str, mask_dir) -> None:
 
         iou = calculate_binary_iou(mask, segmented_map)
         miou += (iou - miou)/(i+1)
-        # print(f"IOU: {iou}, mIOU: {miou}")
         progress_bar.set_postfix({'IOU': iou, 'mIOU': miou, 'cell Avg':cell_avg_value, 'Image': img_path})
         cv2.imshow(f"output", output)
         cv2.waitKey(10)
-        # traversable = True
+
         if not(traversable):
             new_prompt = input("Enter new traversable terrain prompt: ")
             if new_prompt:
                 model.prompts['positive'].append(new_prompt)
 
     cv2.destroyAllWindows()        
-    
-        
 
 if __name__ == "__main__":
-    main('../data/examples/offroad/rugd_images_all', '../data/examples/offroad/rugd_masks_all')
-    
-
+    main('../data/examples/offroad/rellis/combined_images', '../data/examples/offroad/rellis/combined_masks')

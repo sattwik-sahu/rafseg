@@ -5,10 +5,14 @@ import numpy as np
 import cv2
 
 class ClipSegProcessor():
-    def __init__(self, initial_prompts: t.List[str]) -> None:
+    def __init__(self, initial_prompts: t.Dict[str, t.List[str]]) -> None:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.processor = AutoProcessor.from_pretrained("CIDAS/clipseg-rd64-refined")
         self.model = CLIPSegForImageSegmentation.from_pretrained("CIDAS/clipseg-rd64-refined")
+
+        allowed_keys = {"positive", "negative"}
+        if set(initial_prompts.keys()) != allowed_keys:
+            raise ValueError(f"initial_prompts must contain exactly the keys: {allowed_keys}")
         self.prompts = initial_prompts
 
     def post_process_outputs(self, outputs, image_shape, image_dtype) -> t.List[np.ndarray]:
@@ -33,7 +37,9 @@ class ClipSegProcessor():
         """
         Return a list of attention maps. Length of list = number of prompt texts.
         """
-        inputs = self.processor(text=self.prompts, images=[image] * len(self.prompts), padding=True, return_tensors="pt")
+        prompts = self.prompts['positive'] + self.prompts['negative']
+        # print(prompts)
+        inputs = self.processor(text=prompts, images=[image] * len(prompts), padding=True, return_tensors="pt")
 
         with torch.no_grad():
             outputs = self.model(**inputs)
@@ -41,7 +47,7 @@ class ClipSegProcessor():
         maps = []
         for ix, map in enumerate(self.post_process_outputs(outputs, image.shape, image.dtype)):
             #write map prompt text on image
-            map = cv2.putText(map, f"{self.prompts[ix]}", (0, 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+            map = cv2.putText(map, f"{prompts[ix]}", (0, 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
             maps.append(map)
         return maps
         

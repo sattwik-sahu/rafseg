@@ -2,7 +2,7 @@ import numpy as np
 import typing as t
 import cv2
 
-def bottom_square(image: np.ndarray, threshold: float) -> t.Tuple[bool, t.Tuple[int, int, int, int]]:
+def bottom_square(image: np.ndarray, threshold: float) -> t.Tuple[bool, t.Tuple[int, int, int, int], float]:
     # print(f"image demensions: {image.shape}")
     #convert bgr to gray
     image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -34,4 +34,4 @@ def bottom_square(image: np.ndarray, threshold: float) -> t.Tuple[bool, t.Tuple[
     bottom_center_cell_coorindates = (start_row, end_row, start_col, end_col)
 
     # Return True if the average value is greater than the threshold, False otherwise
-    return average_value > threshold, bottom_center_cell_coorindates
+    return average_value > threshold, bottom_center_cell_coorindates, average_value
